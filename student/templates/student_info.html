@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Information</title>
+    <style>
+        body {
+            background-color: #333;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #444;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #007BFF;
+        }
+
+        .student-info {
+            margin-top: 20px;
+        }
+
+        .student-info label {
+            font-weight: bold;
+        }
+
+        .student-info p {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Student Information</h1>
+        <div class="student-info">
+            <label>ID:</label> {{ student.id }} <br><br>
+            <label>Name:</label>  {{ student.name }}<br><br>
+            <label>Surname:</label>  {{ student.surname }}<br><br>
+            <label>Group:</label>  {{ student.group }}<br><br>
+            <label>Subject:</label> {{ student.subject }}<br><br>
+            <label>Token:</label> {{ student.token }}<br><br>
+            <label>Password:</label>  {{ student.password }}<br><br>
+    </div>
+    </div>
+</body>
+</html>

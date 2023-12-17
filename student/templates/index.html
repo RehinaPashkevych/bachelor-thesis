@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register to Room</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Register to Room</h1>
+        <form method="POST" action="/register-to-room">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="surname">Surname:</label>
+            <input type="text" id="surname" name="surname" required>
+
+            <label for="group">Group:</label>
+            <input type="text" id="group" name="group" required>
+
+            <label for="subject">Subject:</label>
+            <input type="text" id="subject" name="subject" required>
+
+            <label for="token">Token:</label>
+            <input type="text" id="token" name="token" required>
+
+            <label for="password">Password:</label>
+            <input type="text" id="password" name="password" >
+
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+</body>
+</html>

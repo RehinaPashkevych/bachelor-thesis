@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>All Tokens</title>
+    <style>
+              body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        table {
+            width: 80%;
+            margin: 0 auto;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #333;
+            color: #fff;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        tr:nth-child(odd) {
+            background-color: #e6e6e6;
+        }
+    </style>
+</head>
+<body>
+    <h1>All Tokens</h1>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Token</th>
+            <th>Password</th>
+            <th>Creation Time</th>
+        </tr>
+        {% for row in data %}
+        <tr>
+            <td>{{ row.id }}</td>
+            <td>{{ row.token }}</td>
+            <td>{{ row.password }}</td>
+            <td>{{ row.creation_time }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
