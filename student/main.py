@@ -27,12 +27,7 @@ def get_json(response):
 def register_to_room():
     if request.method == 'POST':
         # Get form data
-        name = request.form.get('name')
-        surname = request.form.get('surname')
-        group = request.form.get('group')
-        subject = request.form.get('subject')
-        token = request.form.get('token')
-        password = request.form.get('password')
+        name, surname, group, subject, token, password = get_form_data()
 
         # Send a request to the first microservice to validate the token and password
         validation_response = validate_token_and_password(token, password)
@@ -50,28 +45,27 @@ def register_to_room():
 @app.route('/students', methods=['GET'])
 def display_students():
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        conn, cursor = connect_to_database()
 
-        # Pobierz parametry z żądania
+        # Get parameters from the request
         sort_by = request.args.get('sort_by', default='id')
         filter_token = request.args.get('token', default=None)
         filter_by = request.args.get('filter_by', default=None)
         search_value = request.args.get('search_value', default=None)
 
-        # Sprawdź, czy kolumna wskazana w filter_by istnieje w tabeli
+        # Check if the column specified in filter_by exists in the table
         valid_columns = ['name', 'surname', 'group', 'subject', 'token', 'password']
-        if filter_by not in valid_columns:
-            return "Invalid filter_by parameter.", 400
+        if filter_by and filter_by not in valid_columns:
+            filter_by = None  # Ignoruj nieprawidłową wartość filter_by
 
-        # Buduj zapytanie SQL z uwzględnieniem parametrów
+        # Build an SQL query including parameters
         query = "SELECT * FROM `students-bd`"
 
         if filter_token:
             query += f" WHERE `token` = '{filter_token}'"
 
         if filter_by and search_value:
-            # Dodaj warunek do wyszukiwania w określonych kolumnach
+            # Add a condition to search on specific columns
             if 'WHERE' not in query:
                 query += " WHERE"
             else:
@@ -80,7 +74,7 @@ def display_students():
 
         query += f" ORDER BY {sort_by}"
 
-        # Wykonaj zapytanie SQL
+        # Execute the SQL query
         cursor.execute(query)
         students = cursor.fetchall()
 
@@ -89,8 +83,7 @@ def display_students():
         print("Error:", e)
         return "An error occurred while fetching student data."
     finally:
-        cursor.close()
-        conn.close()
+        close_database_connection(cursor, conn)
 
 
 @app.route('/student/<int:id>', methods=['GET', 'POST', 'DELETE'])
@@ -106,16 +99,7 @@ def retrieve_or_delete_student(id):
     if request.method == 'POST':
         # Update the student by ID
         try:
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor()
-
-            # Assuming you have form data for updating student details
-            name = request.form.get('name')
-            surname = request.form.get('surname')
-            group = request.form.get('group')
-            subject = request.form.get('subject')
-            token = request.form.get('token')
-            password = request.form.get('password')
+            name, surname, group, subject, token, password = get_form_data()
 
             insert_data_into_db(name, surname, group, subject, token, password, id)
             return "Student updated successfully"
@@ -126,12 +110,10 @@ def retrieve_or_delete_student(id):
     if request.method == 'DELETE':
         # Delete the student by ID
         try:
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor()
+            conn, cursor = connect_to_database()
             cursor.execute("DELETE FROM `students-bd` WHERE id = %s", (id,))
             conn.commit()
-            cursor.close()
-            conn.close()
+            close_database_connection(cursor, conn)
             return "Student deleted successfully"
         except mysql.connector.Error as e:
             print("Error:", e)
@@ -140,14 +122,15 @@ def retrieve_or_delete_student(id):
 
 def retrieve_student_info_by_id(id):
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        conn, cursor = connect_to_database()
         cursor.execute("SELECT * FROM `students-bd` WHERE id = %s", (id,))
         student = cursor.fetchone()
         return student
     except mysql.connector.Error as e:
         print("Error:", e)
         return None
+    finally:
+        close_database_connection(cursor, conn)
 
 
 def validate_token_and_password(token, password):
@@ -165,9 +148,8 @@ def validate_token_and_password(token, password):
 
 def insert_data_into_db(name, surname, group, subject, token, password, student_id=None):
     try:
-        if name and surname and group and subject and token :
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor()
+        if all((name, surname, group, subject, token)):
+            conn, cursor = connect_to_database()
 
             # Check if the student with the given ID already exists
             if student_id is not None and student_id != 0:
@@ -193,12 +175,33 @@ def insert_data_into_db(name, surname, group, subject, token, password, student_
                 cursor.execute(insert_query, (name, surname, group, subject, token, password))
 
             conn.commit()
-            cursor.close()
-            conn.close()
+            close_database_connection(cursor, conn)
         else:
             print("Error: All fields are required")
     except mysql.connector.Error as e:
         print("Error:", e)
+
+
+def get_form_data():
+    return (
+        request.form.get('name'),
+        request.form.get('surname'),
+        request.form.get('group'),
+        request.form.get('subject'),
+        request.form.get('token'),
+        request.form.get('password')
+    )
+
+
+def connect_to_database():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    return conn, cursor
+
+
+def close_database_connection(cursor, conn):
+    cursor.close()
+    conn.close()
 
 
 if __name__ == '__main__':

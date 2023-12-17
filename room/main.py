@@ -1,11 +1,14 @@
 from datetime import datetime
-
+from flask_restx import Resource
+from swagger_config import api, token_parser, token_model
 from flask import Flask, render_template, request, jsonify
 import random
 import string
 import mysql.connector
 
 app = Flask(__name__)
+api.init_app(app)  # init object Api
+api = api.namespace('', description='HTTP Operations related to tokens')
 
 # MySQL Configuration
 db_config = {
@@ -17,7 +20,6 @@ db_config = {
 
 
 # Function to generate a random 5-character token
-
 @app.route('/generate-token', methods=['GET', 'POST'])
 def generate_and_insert_token():
     password = ""  # Initialize the password variable
@@ -59,6 +61,53 @@ def display_or_delete_or_update_token_info(id):
             return "Row with ID {} not found.".format(id), 404
 
 
+@api.route('/api/token/<int:id>')
+class TokenResource(Resource):
+    def get(self, id):
+        token, password, creation_time = retrieve_token_info(id)
+        if token is not None:
+            # Convert date to string before returning response
+            creation_time_str = creation_time.strftime("%Y-%m-%d %H:%M:%S") if creation_time else None
+            return {'id': id, 'token': token, 'password': password, 'creation_time': creation_time_str}
+        else:
+            api.abort(404, f"Row with ID {id} not found")
+
+    @api.expect(token_parser)
+    def post(self, id):
+        args = token_parser.parse_args()
+        new_token = args['token']
+        new_password = args['password']
+        if update_token_info(id, new_token, new_password):
+            return f"Information for ID {id} has been updated."
+        else:
+            api.abort(404, f"Row with ID {id} not found")
+
+    def delete(self, id):
+        if delete_token(id):
+            return f"Row with ID {id} has been deleted."
+        else:
+            api.abort(404, f"Row with ID {id} not found")
+
+
+@api.route('/api/tokens')
+class TokenList(Resource):
+    @api.doc(responses={200: 'OK'})
+    def get(self):
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT id, token, password, creation_time FROM `room-db`")
+        tokens = cursor.fetchall()
+        results = []
+        for token in tokens:
+            token['creation_time'] = token['creation_time'].isoformat()
+            results.append(token)
+
+        cursor.close()
+        conn.close()
+        return tokens, 200
+
+
 @app.route('/tokens', methods=['GET'])
 def display_filtered_tokens():
     try:
@@ -91,16 +140,6 @@ def display_filtered_tokens():
     return "An error occurred while fetching token data."
 
 
-"""
-@app.route('/get-token-data-id/<int:id>', methods=['GET'])
-def get_token_data(id):
-    data = retrieve_token_info(id)
-    if data:
-        return jsonify(data)  # Return the data as JSON
-    else:
-        return jsonify({'error': 'Token not found'}), 404
-"""
-
 @app.route('/get-data/<string:token>', methods=['GET'])
 def get_token_data(token):
     data = retrieve_token_info_by_token(token)
@@ -112,6 +151,22 @@ def get_token_data(token):
         return jsonify(response_data)
     else:
         return jsonify({'error': 'Token not found'}), 404
+
+
+@api.route('/api/get-data/<string:token>')
+class TokenResource(Resource):
+    @api.marshal_with(token_model)
+    def get(self, token):
+        data = retrieve_token_info_by_token(token)
+        if data:
+            response_data = {
+                'token': data[0],  # Assuming data[0] contains the token
+                'password': data[1]  # Assuming data[1] contains the password
+            }
+            return response_data
+        else:
+            api.abort(404, 'Token not found')
+
 
 def retrieve_token_info_by_token(token):
     try:
@@ -134,6 +189,7 @@ def retrieve_token_info_by_token(token):
         conn.close()
 
     return None, None  # Return None if the row is not found or an error occurs
+
 
 def generate_token():
     token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
@@ -222,6 +278,7 @@ def retrieve_all_tokens():
 
     return []  # Return an empty list if an error occurs or no data is found
 
+
 # Function to update the password for a given token ID
 def update_token_info(id, new_token, new_password, new_time=None):
     try:
@@ -233,7 +290,8 @@ def update_token_info(id, new_token, new_password, new_time=None):
             new_time = datetime.now()
 
         # Execute an UPDATE query to change the token, password, and time for the specified ID
-        cursor.execute("UPDATE `room-db` SET token = %s, password = %s, creation_time = %s WHERE id = %s", (new_token, new_password, new_time, id))
+        cursor.execute("UPDATE `room-db` SET token = %s, password = %s, creation_time = %s WHERE id = %s",
+                       (new_token, new_password, new_time, id))
 
         # Check if any rows were affected
         if cursor.rowcount > 0:
@@ -250,6 +308,7 @@ def update_token_info(id, new_token, new_password, new_time=None):
     except mysql.connector.Error as e:
         print("Error:", e)
         return False
+
 
 if __name__ == '__main__':
     app.run(debug=True)
