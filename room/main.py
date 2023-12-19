@@ -33,7 +33,7 @@ def generate_and_insert_token():
     return render_template('index.html', token=token, password=password)
 
 
-@app.route('/token/<int:id>', methods=['GET', 'POST', 'DELETE'])  # ADD PUT METHOD
+@app.route('/token/<int:id>', methods=['GET', 'POST', 'DELETE'])
 def display_or_delete_or_update_token_info(id):
     if request.method == 'GET':
         # Retrieve and display token information
@@ -93,26 +93,45 @@ class TokenResource(Resource):
 class TokenList(Resource):
     @api.doc(responses={200: 'OK'})
     def get(self):
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        try:
+            conn, cursor = connect_to_database()
 
-        cursor.execute("SELECT id, token, password, creation_time FROM `room-db`")
-        tokens = cursor.fetchall()
-        results = []
-        for token in tokens:
-            token['creation_time'] = token['creation_time'].isoformat()
-            results.append(token)
+            # Default query to retrieve all data
+            query = "SELECT id, token, password, creation_time FROM `room-db`"
 
-        cursor.close()
-        conn.close()
-        return tokens, 200
+            # Check if filter_by and search_value parameters are provided
+            filter_by = request.args.get('filter_by')
+            search_value = request.args.get('search_value')
+
+            # If both filter_by and search_value are provided, add a WHERE clause to the query
+            if filter_by and search_value:
+                query += f" WHERE `{filter_by}` LIKE '%{search_value}%'"
+
+            # Execute the query
+            cursor.execute(query)
+
+            # Fetch the results after executing the query
+            tokens = cursor.fetchall()
+
+            # Convert the creation_time to ISO format for each token
+            results = [{'id': token['id'],
+                        'token': token['token'],
+                        'password': token['password'],
+                        'creation_time': token['creation_time'].isoformat()} for token in tokens]
+
+            close_database_connection(cursor, conn)
+            return results, 200
+
+        except mysql.connector.Error as e:
+            print("Error:", e)
+            return {"error": "An error occurred while fetching token data."}, 500
+
 
 
 @app.route('/tokens', methods=['GET'])
 def display_filtered_tokens():
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        conn, cursor = connect_to_database()
 
         # Default query to retrieve all data
         query = "SELECT id, token, password, creation_time FROM `room-db`"
@@ -134,8 +153,7 @@ def display_filtered_tokens():
     except mysql.connector.Error as e:
         print("Error:", e)
     finally:
-        cursor.close()
-        conn.close()
+        close_database_connection(cursor, conn)
 
     return "An error occurred while fetching token data."
 
@@ -170,8 +188,7 @@ class TokenResource(Resource):
 
 def retrieve_token_info_by_token(token):
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        conn, cursor = connect_to_database()
 
         # Query the database to retrieve the token, password, and creation_time for the specified token
         cursor.execute("SELECT token, password FROM `room-db` WHERE token = %s", (token,))
@@ -185,8 +202,7 @@ def retrieve_token_info_by_token(token):
     except mysql.connector.Error as e:
         print("Error:", e)
     finally:
-        cursor.close()
-        conn.close()
+        close_database_connection(cursor, conn)
 
     return None, None  # Return None if the row is not found or an error occurs
 
@@ -199,21 +215,18 @@ def generate_token():
 # Function to insert the token and password into the MySQL database
 def insert_data_into_db(token, password):
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+        conn, cursor = connect_to_database()
         insert_query = "INSERT INTO `room-db` (token, password) VALUES (%s, %s)"  # Use backticks for the table name
         cursor.execute(insert_query, (token, password))
         conn.commit()
-        cursor.close()
-        conn.close()
+        close_database_connection(cursor, conn)
     except mysql.connector.Error as e:
         print("Error:", e)
 
 
 def retrieve_token_info(id):
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        conn, cursor = connect_to_database()
 
         # Query the database to retrieve the token, password, and creation_time for the specified id
         cursor.execute("SELECT token, password, creation_time FROM `room-db` WHERE id = %s", (id,))
@@ -228,16 +241,14 @@ def retrieve_token_info(id):
     except mysql.connector.Error as e:
         print("Error:", e)
     finally:
-        cursor.close()
-        conn.close()
+        close_database_connection(cursor, conn)
 
     return None, None, None  # Return None if the row is not found or an error occurs
 
 
 def delete_token(id):
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+        conn, cursor = connect_to_database()
 
         # Execute a DELETE query to remove the row with the specified id
         cursor.execute("DELETE FROM `room-db` WHERE id = %s", (id,))
@@ -245,13 +256,11 @@ def delete_token(id):
         # Check if any rows were affected
         if cursor.rowcount > 0:
             conn.commit()
-            cursor.close()
-            conn.close()
+            close_database_connection(cursor, conn)
             return True
         else:
             # No rows were affected, indicating the ID was not found
-            cursor.close()
-            conn.close()
+            close_database_connection(cursor, conn)
             return False
 
     except mysql.connector.Error as e:
@@ -261,8 +270,7 @@ def delete_token(id):
 
 def retrieve_all_tokens():
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        conn, cursor = connect_to_database()
 
         # Query the database to retrieve all data
         cursor.execute("SELECT id, token, password, creation_time FROM `room-db`")
@@ -273,8 +281,7 @@ def retrieve_all_tokens():
     except mysql.connector.Error as e:
         print("Error:", e)
     finally:
-        cursor.close()
-        conn.close()
+        close_database_connection(cursor, conn)
 
     return []  # Return an empty list if an error occurs or no data is found
 
@@ -282,8 +289,7 @@ def retrieve_all_tokens():
 # Function to update the password for a given token ID
 def update_token_info(id, new_token, new_password, new_time=None):
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+        conn, cursor = connect_to_database()
 
         # Determine the new creation time
         if new_time is None:
@@ -296,18 +302,27 @@ def update_token_info(id, new_token, new_password, new_time=None):
         # Check if any rows were affected
         if cursor.rowcount > 0:
             conn.commit()
-            cursor.close()
-            conn.close()
+            close_database_connection(cursor, conn)
             return True
         else:
             # No rows were affected, indicating the ID was not found
-            cursor.close()
-            conn.close()
+            close_database_connection(cursor, conn)
             return False
 
     except mysql.connector.Error as e:
         print("Error:", e)
         return False
+
+
+def connect_to_database():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    return conn, cursor
+
+
+def close_database_connection(cursor, conn):
+    cursor.close()
+    conn.close()
 
 
 if __name__ == '__main__':
