@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask_restx import Resource
-from swagger_config import api, token_parser, token_model
+from swagger_config import api, token_parser, token_model, token_model_full
 from flask import Flask, render_template, request, jsonify
 import random
 import string
@@ -33,9 +33,10 @@ def generate_and_insert_token():
     return render_template('index.html', token=token, password=password)
 
 
-@app.route('/token/<int:id>', methods=['GET', 'POST', 'DELETE'])
+@app.route('/token/<int:id>', methods=['GET', 'PUT', 'POST', 'DELETE'])
 def display_or_delete_or_update_token_info(id):
-    if request.method == 'GET':
+    method = request.args.get('_method', None)
+    if request.method == 'GET' and method != 'DELETE':
         # Retrieve and display token information
         token, password, creation_time = retrieve_token_info(id)
         if token is not None:
@@ -44,7 +45,7 @@ def display_or_delete_or_update_token_info(id):
         else:
             return "Row with ID {} not found.".format(id), 404
 
-    elif request.method == 'POST':
+    elif request.method == 'PUT' and method != 'DELETE':
         # Update the password and the token for the specified token ID
         new_token = request.form.get('token')
         new_password = request.form.get('password')
@@ -53,7 +54,16 @@ def display_or_delete_or_update_token_info(id):
         else:
             return "Row with ID {} not found.".format(id), 404
 
-    elif request.method == 'DELETE':
+    elif request.method == 'POST' and method != 'DELETE':
+        new_token = request.form.get('token')
+        new_password = request.form.get('password')
+        if new_token:
+            insert_data_into_db(new_token, new_password, id)
+            return "New token added successfully."
+        else:
+            return "Missing 'token' parameter in the request.", 400
+
+    elif request.method == 'DELETE' or method == 'DELETE':
         # Delete the row with the specified id
         if delete_token(id):
             return "Row with ID {} has been deleted.".format(id)
@@ -72,8 +82,18 @@ class TokenResource(Resource):
         else:
             api.abort(404, f"Row with ID {id} not found")
 
-    @api.expect(token_parser)
     def post(self, id):
+        args = token_parser.parse_args()
+        new_token = args['token']
+        new_password = args['password']
+        if new_token:
+            insert_data_into_db(new_token, new_password, id)
+            return f"The row for ID {id} has been added."
+        else:
+            api.abort(400, "Missing 'token' parameter in the request.")
+
+    @api.expect(token_parser)
+    def put(self, id):
         args = token_parser.parse_args()
         new_token = args['token']
         new_password = args['password']
@@ -92,6 +112,7 @@ class TokenResource(Resource):
 @api.route('/api/tokens')
 class TokenList(Resource):
     @api.doc(responses={200: 'OK'})
+    @api.marshal_with(token_model_full, as_list=True)
     def get(self):
         try:
             conn, cursor = connect_to_database()
@@ -114,10 +135,20 @@ class TokenList(Resource):
             tokens = cursor.fetchall()
 
             # Convert the creation_time to ISO format for each token
-            results = [{'id': token['id'],
-                        'token': token['token'],
-                        'password': token['password'],
-                        'creation_time': token['creation_time'].isoformat()} for token in tokens]
+            results = []
+            for token in tokens:
+                token_data = {
+                    'id': token['id'],
+                    'token': token['token'],
+                    'password': token['password'],
+                    'creation_time': token['creation_time'].isoformat(),
+                    '_links': {
+                        'self': f"http://localhost:5000/token/{token['id']}",
+                        'update': f"http://localhost:5000/token/{token['id']}",
+                        'delete': f"http://localhost:5000/token/{token['id']}",
+                    }
+                }
+                results.append(token_data)
 
             close_database_connection(cursor, conn)
             return results, 200
@@ -125,7 +156,6 @@ class TokenList(Resource):
         except mysql.connector.Error as e:
             print("Error:", e)
             return {"error": "An error occurred while fetching token data."}, 500
-
 
 
 @app.route('/tokens', methods=['GET'])
@@ -148,7 +178,23 @@ def display_filtered_tokens():
         cursor.execute(query)
         data = cursor.fetchall()
 
-        return render_template('tokens.html', data=data)
+        # Format each token data with links
+        formatted_data = []
+        for token in data:
+            formatted_token = {
+                'id': token['id'],
+                'token': token['token'],
+                'password': token['password'],
+                'creation_time': token['creation_time'].isoformat(),
+                '_links': {
+                    'self': f"http://localhost:5000/token/{token['id']}",
+                    'update': f"http://localhost:5000/token/{token['id']}",
+                    'delete': f"http://localhost:5000/token/{token['id']}",
+                }
+            }
+            formatted_data.append(formatted_token)
+
+        return render_template('tokens.html', data=formatted_data)
 
     except mysql.connector.Error as e:
         print("Error:", e)
@@ -213,13 +259,38 @@ def generate_token():
 
 
 # Function to insert the token and password into the MySQL database
-def insert_data_into_db(token, password):
+def insert_data_into_db(token, password, token_id=None):
     try:
-        conn, cursor = connect_to_database()
-        insert_query = "INSERT INTO `room-db` (token, password) VALUES (%s, %s)"  # Use backticks for the table name
-        cursor.execute(insert_query, (token, password))
-        conn.commit()
-        close_database_connection(cursor, conn)
+        if token:
+            conn, cursor = connect_to_database()
+
+            if token_id is not None and token_id != 0:
+
+                cursor.execute("SELECT COUNT(*) FROM `room-db` WHERE id = %s", (token_id,))
+                result = cursor.fetchone()
+
+                if result and result['COUNT(*)'] > 0:
+                    raise ValueError(f"Token with ID {token_id} already exists")
+
+            if token_id is not None and token_id != 0:
+                insert_query = """
+                    INSERT INTO `room-db` (`id`, `token`, `password`)
+                    VALUES (%s, %s, %s)
+                """
+                cursor.execute(insert_query, (token_id, token, password))
+            else:
+                insert_query = """  
+                    INSERT INTO `room-db` (`token`, `password`)
+                    VALUES (%s, %s)
+                """
+                cursor.execute(insert_query, (token, password))
+
+            conn.commit()
+            close_database_connection(cursor, conn)
+
+        else:
+            raise ValueError("Error: 'token' is required")
+
     except mysql.connector.Error as e:
         print("Error:", e)
 
