@@ -1,4 +1,4 @@
-# Thesis Project: Design and Implementation of a RESTful API for Attendance Verification
+# Thesis Project: A REST-compilant Application Programming Interface (RESTfull API): An Educational Example
 
 ## Introduction
 
@@ -74,6 +74,12 @@ This repository contains all the materials and codebase for the thesis project o
 ### `Praca_dyplomowa-pdf.pdf`
 
 -  The complete text of the thesis in PDF format, providing a comprehensive account of the project's motivation, theoretical background, objectives, system design, implementation details, and the practical applications of the developed RESTful API. The thesis are written in Polish.
+
+
+### `diploma-score-exam-gpa.pdf`
+
+-  The scan from my diploma supplements shows my GPA (4,07), the grade of the diploma thesis (5) and the grade for diploma examination (4,63).
+
 
 
 
