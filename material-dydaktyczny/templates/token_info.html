@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Token Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        p {
+            color: #666;
+            font-size: 18px;
+        }
+
+        /* Add styles specific to the creation_time */
+        .creation-time {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Token Information</h1>
+    <p>ID: {{ id }}</p>
+    <p>Generated Token: {{ token }}</p>
+    <p>Generated Password: {{ password }}</p>
+    <p class="creation-time">Creation Time: {{ creation_time }}</p>
+</body>
+</html>
