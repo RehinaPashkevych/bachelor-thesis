@@ -55,3 +55,26 @@ The system comprises two microservices, each offering a suite of endpoints to su
 The thesis underscores the importance of RESTful APIs in the development of scalable, efficient, and modern software systems. By providing a detailed account of both the theoretical underpinnings and practical implementation of a RESTful service, this work aims to bridge the gap between academic knowledge and real-world application, offering valuable insights for both educational and professional development in the field of software engineering.
 
 
+## Repository Contents
+
+This repository contains all the materials and codebase for the thesis project on the design and implementation of a RESTful API for attendance verification within a microservices architecture. Below is a detailed overview of the repository's structure and the purpose of each item:
+
+### `material-dydaktyczny/`
+
+- Contains educational material and interactive examples demonstrating the principles of REST API, microservices design, and implementation strategies used in the project. These notebooks serve as a practical guide for understanding and applying the concepts discussed in the thesis.  The materials are written in Polish.
+
+### `room/`
+
+- This directory houses the code for the Room microservice, responsible for generating and managing tokens and passwords used for meeting authentication. It includes all the necessary Flask routes, models, and utilities to support its operations.
+
+### `student/`
+
+-  Contains the implementation of the Student microservice, which facilitates participant registration for meetings using personal information along with a generated token for verification. This microservice also handles the validation of tokens and passwords in coordination with the Room microservice.
+
+### `Praca_dyplomowa-pdf.pdf`
+
+-  The complete text of the thesis in PDF format, providing a comprehensive account of the project's motivation, theoretical background, objectives, system design, implementation details, and the practical applications of the developed RESTful API. The thesis are written in Polish.
+
+
+
+
